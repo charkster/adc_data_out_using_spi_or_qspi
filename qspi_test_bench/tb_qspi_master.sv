@@ -53,19 +53,19 @@ module tb_qspi_master ();
       $finish;
    end
    
-  logic  [1:0] data_counter;
+   logic  [1:0] nibble_counter;
   logic        start_buf;
   logic [15:0] adc_data;
   logic [15:0] adc_data_buf;
   
   always_ff @(posedge clk or negedge rst_n)
-    if (!rst_n)                  data_counter <= 'd0;
-    else if (start || start_buf) data_counter <= data_counter + 'd1;
-    else                         data_counter <= 'd0;
+    if (!rst_n)                  nibble_counter <= 'd0;
+    else if (start || start_buf) nibble_counter <= nibble_counter + 'd1; // overflow expected
+    else                         nibble_counter <= 'd0;
   
   always_ff @(posedge clk or negedge rst_n)
-    if (!rst_n)                              adc_data <= 'd0;
-    else if (start && (data_counter == 'd0)) adc_data <= adc_data + 'd1;
+    if (!rst_n)                                adc_data <= 'd0;
+    else if (start && (nibble_counter == 'd0)) adc_data <= adc_data + 'd1; // example adc data is sequential
   
   adc_buffer u_adc_buffer
   ( .adc_clk_4x (clk),   // input  logic        
