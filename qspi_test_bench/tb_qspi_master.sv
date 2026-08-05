@@ -76,7 +76,7 @@ module tb_qspi_master ();
     .start_buf           // output logic        
   );
   
-  qspi_master u_qspi_master
+  qspi_master_psram_write u_qspi_master_psram_write
   ( .clk,                     // input
     .rst_n,                   // input
     .start    (start_buf),    // input
