@@ -1,8 +1,8 @@
 
-module qspi_master_psram_write (
-  input  logic        clk,
+module qspi_master (
+  input  logic        clk,   // 4x adc clock
   input  logic        rst_n,
-  input  logic        start, // pulse to start
+  input  logic        start, // should be high while adc_data is valid
   input  logic [15:0] adc_data,
   output logic        busy,
 
@@ -31,10 +31,10 @@ module qspi_master_psram_write (
   assign sck = clk && en_sclk; // dirty clock gate
 
   always_comb
-    if ((state == IDLE) && start)                 next_state = CMD;
-    else if ((state == CMD)  && (counter == 'd0)) next_state = ADDR;
-    else if ((state == ADDR) && (counter == 'd0)) next_state = DATA;
-    else if ((state == DATA) && (counter == 'd0)) next_state = IDLE;
+    if ((state == IDLE) && start)                             next_state = CMD;
+    else if ((state == CMD)  && (counter == 'd0))             next_state = ADDR;
+    else if ((state == ADDR) && (counter == 'd0))             next_state = DATA;
+    else if ((state == DATA) && (counter == 'd0) && (!start)) next_state = IDLE;
     else                                          next_state = state;
 
   always_ff @(posedge clk or negedge rst_n)
@@ -43,11 +43,12 @@ module qspi_master_psram_write (
 
   // countdown style which makes it easier to use for indexing MOSI data
   always_ff @(posedge clk or negedge rst_n)
-    if (!rst_n)                                             counter <= 'd0;
-    else if ((next_state != state) && (next_state == CMD))  counter <= CMD_CLK_COUNT;
-    else if ((next_state != state) && (next_state == ADDR)) counter <= ADDR_CLK_COUNT;
-    else if ((next_state != state) && (next_state == DATA)) counter <= DATA_CLK_COUNT;
-    else if (counter != 'd0)                                counter <= counter - 'd1;
+    if (!rst_n)                                                 counter <= 'd0;
+    else if ((next_state != state)     && (next_state == CMD))  counter <= CMD_CLK_COUNT;
+    else if ((next_state != state)     && (next_state == ADDR)) counter <= ADDR_CLK_COUNT;
+    else if ((next_state != state)     && (next_state == DATA)) counter <= DATA_CLK_COUNT;
+    else if (start && (counter == 'd2) && (next_state == DATA)) counter <= DATA_CLK_COUNT; // restart counter if more data is available
+    else if (counter != 'd0)                                    counter <= counter - 'd1;
 
   always_ff @(posedge clk or negedge rst_n)
     if (!rst_n)                  cs_n <= 1'b1;
@@ -60,12 +61,15 @@ module qspi_master_psram_write (
     else if ((state == DATA) && (counter == 'd1)) en_sclk <= 1'b0;
 
   always_ff @(posedge clk or negedge rst_n)
-    if (!rst_n)                                       address <= 'd0;
-    else if ((state == DATA) && (next_state == IDLE)) address <= address + 'd2;
+    if (!rst_n)                                            address <= 'd0;
+    else if ((state == DATA) && (next_state == IDLE))      address <= address + 'd2;
+    else if ((state == DATA) && start && (counter == 'd2)) address <= address + 'd2; // keep track of address
+
     
   always_ff @(posedge clk or negedge rst_n)
-    if (!rst_n)                                       data <= 'hFFFF;  // optional buffering of adc_data
-    else if ((state == DATA) && (next_state == IDLE)) data <= adc_data;
+    if (!rst_n)                                            data <= 'hFFFF;
+    else if ((state == ADDR) && (next_state == DATA))      data <= adc_data;
+    else if ((state == DATA) && start && (counter == 'd2)) data <= adc_data;
 
   always_ff @(negedge clk or negedge rst_n)
     if (!rst_n)                                   {sio3,sio2,sio1,sio0} <= 4'd0;
