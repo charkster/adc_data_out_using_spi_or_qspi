@@ -9,8 +9,8 @@ If you place a standard SPI DAC IC on the evaluation board you could even compar
 
 **UPDATE**
 
-I added a QSPI version. There is a PSRAM command to enable QSPI timing and this version does not use it.
+I added a QSPI version. This version outputs the instruction and address using 1x SPI and then transitions to 4x SPI when the data is transmitted. There is a mode where instruction, address and data are all sent at 4x SPI, but that requires a separate instruction to be sent in advance. There is no limit to how much data can be sent in a single bus frame, which means the 1x SPI portion could make up a tiny part of the entire frame.
 
-When QSPI speed is needed, it would make sense to remain in the "DATA" fsm state and output data as a block transfer (where the command and address are just sent once and lots of ADC data follows). The address counter could be repurposed to transition to the "IDLE" state when the last valid PSRAM address is approached (as to not over-write the memory).
+As for future improvements, the address counter could be used to automatically transition to the "IDLE" state when the last valid PSRAM address is approached (as to not over-write the memory).
 
 ![picture](https://github.com/charkster/adc_data_out_using_spi/blob/main/qspi_single_cycle.png)
